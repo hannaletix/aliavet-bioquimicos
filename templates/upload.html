@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Página Inicial</title>
+    <script src="static/js/script.js" defer></script>
+</head>
+<body>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <label for="fileUpload">Escolha um arquivo:</label>
+        <input type="file" id="fileUpload" name="fileUpload">
+        <input type="button" value="Enviar" id="submitBtn">
+    </form>
+    <div id="message"></div>
+
+    <a href="/download_zip" download>
+        <button>Download ZIP</button>
+    </a>
+</body>
+</html>
