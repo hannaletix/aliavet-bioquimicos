@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Aliavet Files</title>
+    <script src="static/js/script.js" defer></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <div class="aliavet-files-container">
+        <h1>Organizador de Documentos por Animal</h1>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <div>
+                <input type="file" id="hiddenFileUpload" accept=".doc,.docx" name="fileUpload"/>
+                <button id="fileUpload" type="button">Escolha um arquivo</button>
+                <span id="fileChosen">Nenhum arquivo escolhido</span>
+            </div>
+
+            <input type="button" value="Enviar" id="submitBtn" disabled>
+        </form>
+    </div>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+
+            <p>Arquivo enviado com sucesso!</p>
+            <p>Clique no botão abaixo para baixar um arquivo ZIP contendo os arquivos de todos os animais:</p>
+            <a href="/download_zip" download id="uploadZipButton">Download ZIP</a>
+        </div>
+    </div>
+
+    <div id="loading">
+        <div>
+            <div class="spinner-loading">
+                <img alt="loading ícone" src="{{ url_for('static', filename='images/horse-loading.svg') }}" />
+            </div>
+        </div>
+    </div>
+</body>
+</html>

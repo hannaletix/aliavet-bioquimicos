@@ -1,0 +1,221 @@
+body {
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+.aliavet-files-container {
+  width: 80%;
+  box-shadow: 0px 4px 20px 0px #00000040;
+  border-radius: 4px;
+  margin-top: 2rem;
+  padding: 24px;
+}
+
+.aliavet-files-container h1 {
+  font-family: Calibri;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 24px;
+  text-align: center;
+  margin: 0 auto 2rem;
+  display: block;
+}
+
+.aliavet-files-container button,
+#submitBtn {
+  font-family: Calibri;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 16px;
+  border-radius: 9px;
+  height: 36px;
+  cursor: pointer;
+  width: 100%;
+}
+
+#submitBtn:disabled {
+  background: #757575;
+  cursor: not-allowed;
+}
+
+#submitBtn {
+  width: 100%;
+  margin: 2rem 0 0;
+  background: #00502f;
+  border: none;
+  color: #fff;
+}
+
+#hiddenFileUpload {
+  display: none;
+}
+
+#fileUpload {
+  padding: 10px;
+  color: #00502f;
+  border: 1px solid #00502f;
+}
+
+#fileChosen {
+  font-family: Calibri;
+  font-size: 16px;
+  line-height: 15px;
+  letter-spacing: -0.27000072598457336px;
+  margin: 8px 0 0;
+  display: block;
+}
+
+#loading {
+  position: fixed;
+  z-index: 5555;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100vh;
+  overflow: auto;
+  background: rgba(49, 49, 49, 0.8);
+  display: none;
+}
+
+#loading > div {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border: 1px solid #888;
+  z-index: 6666;
+  background: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+}
+
+.spinner-loading {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 2rem;
+}
+
+.spinner-loading::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 6px solid #f8f8ff;
+  border-top-color: #00502f;
+  border-radius: 50%;
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+#loading img {
+  width: 9rem;
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgb(0, 0, 0);
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+.modal-content {
+  background-color: #fefefe;
+  width: 76%;
+  margin: 2rem auto 0;
+  padding: 24px;
+  min-height: 15rem;
+  box-shadow: 0px 4px 20px 0px #00000040;
+  border-radius: 4px;
+  position: relative;
+}
+
+.close-button {
+  color: #000;
+  float: right;
+  font-size: 30px;
+  font-weight: bold;
+  position: absolute;
+  top: 8px;
+  right: 16px;
+}
+
+.close-button:hover,
+.close-button:focus {
+  color: black;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.modal-content p {
+  font-family: Calibri;
+  font-size: 16px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.modal-content p:first-of-type {
+  color: #00502f;
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.modal-content a {
+  font-family: Calibri;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  background: #00502f;
+  width: 180px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  border-radius: 9px;
+  margin: 1.5rem auto 0;
+}
+
+@media only screen and (min-device-width: 768px) {
+  .aliavet-files-container {
+    width: 24%;
+    padding: 40px;
+  }
+
+  .modal-content {
+    width: 27%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modal-content p:first-of-type {
+    font-size: 22px;
+  }
+
+  .modal-content p {
+    font-size: 17px;
+  }
+
+  .modal-content a {
+    width: 80%;
+  }
+}
