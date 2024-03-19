@@ -3,6 +3,7 @@ from io import BytesIO
 from docx import Document
 import os
 import random
+from waitress import serve
 from helpers import extract_information_from_table_as_array, find_collection_date, extract_relevant_data, create_zip_with_word_documents, create_word_document_fibs, create_word_document_tp, create_word_document_ttpa
 
 app = Flask(__name__)
@@ -68,5 +69,5 @@ def download_zip():
     else:
         return 'Arquivo zip não encontrado', 404
 
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    serve(app, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
