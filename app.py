@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, send_file
+from flask import Flask, jsonify, request, render_template, send_file
 from io import BytesIO
 from docx import Document
 import os
@@ -68,6 +68,11 @@ def download_zip():
         return send_file(zip_filepath, as_attachment=True)
     else:
         return 'Arquivo zip não encontrado', 404
+
+@app.errorhandler(405)
+def method_not_allowed(error):
+    app.logger.error(f'Erro 405: Método não permitido. Requisição para {request.path} com método {request.method}')
+    return jsonify(error='Método não permitido'), 405
 
 if __name__ == "__main__":
     # Obtém a porta da variável de ambiente do Heroku, ou define como 5000 se não estiver disponível
