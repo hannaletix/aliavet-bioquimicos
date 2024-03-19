@@ -2,10 +2,10 @@
 <html>
 <head>
     <title>Aliavet Files</title>
-    <script src="/script.js" defer></script>
+    <script src="{{ static_url_path }}/script.js" defer></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <link rel="stylesheet" href="/styles.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ static_url_path }}/styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">    
 </head>
 <body>
     <div class="aliavet-files-container">
@@ -34,7 +34,7 @@
     <div id="loading">
         <div>
             <div class="spinner-loading">
-                <img alt="loading ícone" src="{{ url_for('images', filename='horse-loading.svg') }}" />
+                <img src="https://hannaletix.github.io/aliavetFiles/images/horse-loading.svg" alt="Loading Horse" />
             </div>
         </div>
     </div>
