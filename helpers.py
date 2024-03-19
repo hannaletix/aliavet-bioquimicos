@@ -3,6 +3,8 @@ import zipfile
 import re
 import os
 import random
+from docx.shared import Pt
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 
 def extract_information_from_table_as_array(docx_file):
     tables_info = []
@@ -75,16 +77,20 @@ def add_minutes(time):
 
     return f"{hour:02d}:{int(round(minute)):02d}"
 
+def insert_title_document(doc):
+    p = doc.add_paragraph()
+    run = p.add_run('MAX COAG 1')
+    run.font.name = 'Bodoni MT'
+
 def create_word_document_fibs(dataFib, date, time):
     doc = Document()
     timeFib = time
-
 
     for fib in dataFib:
         id = fib['id'][-3:]  # Seleciona apenas as 3 últimas strings
         fibValue = fib['fib'].replace(",", ".")
 
-        doc.add_paragraph(f"MAX COAG 1")
+        insert_title_document(doc)
         doc.add_paragraph(f"ID: {id}")
         doc.add_paragraph(f"{format_date(date)}    {timeFib}")
         doc.add_paragraph(f"FIB-C   {fibValue}    mg/dL")
@@ -104,7 +110,7 @@ def create_word_document_tp(dataTp, date, time):
         id = tp['id'][-3:]  
         tpValue = tp['tp'].replace(",", ".")
 
-        doc.add_paragraph(f"MAX COAG 1")
+        insert_title_document(doc)
         doc.add_paragraph(f"ID: {id}")
         doc.add_paragraph(f"{format_date(date)}    {timeTp}")
         doc.add_paragraph(f"PT   {tpValue}    S")
@@ -124,7 +130,7 @@ def create_word_document_ttpa(dataTtpa, date, time):
         id = ttpa['id'][-3:]
         ttpaValue = ttpa['ttpa'].replace(",", ".")
 
-        doc.add_paragraph(f"MAX COAG 1")
+        insert_title_document(doc)
         doc.add_paragraph(f"ID: {id}")
         doc.add_paragraph(f"{format_date(date)}    {timeTtpa}")
         doc.add_paragraph(f"APTT   {ttpaValue}    S")
