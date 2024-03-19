@@ -7,15 +7,9 @@ from helpers import extract_information_from_table_as_array, find_collection_dat
 
 app = Flask(__name__)
 
-# Determina se a aplicação está rodando localmente ou em produção
-if os.environ.get('FLASK_ENV') == 'development':
-    static_url_path = '/static'  # Caminho local para arquivos estáticos
-else:
-    static_url_path = 'https://hannaletix.github.io/aliavetFiles'
-
 @app.route('/')
 def index():
-    return render_template('index.html', static_url_path=static_url_path)
+    return render_template('index.html')  # Exibe o formulário de upload
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
