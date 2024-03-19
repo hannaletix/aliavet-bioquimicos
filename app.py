@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
-    return render_template('upload.html')  # Exibe o formulário de upload
+    return render_template('index.html')  # Exibe o formulário de upload
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
