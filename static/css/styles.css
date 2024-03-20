@@ -2,13 +2,21 @@ body {
   display: flex;
   justify-content: center;
   position: relative;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.aliavet-logo {
+  width: 160px;
+  position: absolute;
+  bottom: 2%;
 }
 
 .aliavet-files-container {
   width: 80%;
   box-shadow: 0px 4px 20px 0px #00000040;
   border-radius: 4px;
-  margin-top: 2rem;
+  margin: 2rem auto;
   padding: 24px;
 }
 
@@ -217,5 +225,14 @@ body {
 
   .modal-content a {
     width: 80%;
+  }
+
+  .aliavet-logo {
+    top: 1%;
+    left: 1%;
+  }
+
+  .aliavet-files {
+    width: 100%;
   }
 }

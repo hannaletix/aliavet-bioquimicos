@@ -8,17 +8,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">   
 </head>
 <body>
-    <div class="aliavet-files-container">
-        <h1>Organizador de Documentos por Animal</h1>
-        <form id="uploadForm" enctype="multipart/form-data">
-            <div>
-                <input type="file" id="hiddenFileUpload" accept=".doc,.docx" name="fileUpload"/>
-                <button id="fileUpload" type="button">Escolha um arquivo</button>
-                <span id="fileChosen">Nenhum arquivo escolhido</span>
-            </div>
+    <div class="aliavet-files">
+        <div class="aliavet-files-container">
+            <h1>Detalhes do Laudo: Fibrinogênio, Tempo de Protrombina e TTPA</h1>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div>
+                    <input type="file" id="hiddenFileUpload" accept=".doc,.docx" name="fileUpload"/>
+                    <button id="fileUpload" type="button">Escolha um arquivo</button>
+                    <span id="fileChosen">Nenhum arquivo escolhido</span>
+                </div>
+    
+                <input type="button" value="Enviar" id="submitBtn" disabled>
+            </form>
+        </div>
 
-            <input type="button" value="Enviar" id="submitBtn" disabled>
-        </form>
+        <img class="aliavet-logo" alt="aliavet logo" src="{{ url_for('static', filename='images/aliavet-logo.jpeg') }}" />
     </div>
 
     <div id="modal" class="modal">

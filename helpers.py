@@ -31,18 +31,32 @@ def is_id(data):
             return True
     return False
 
+def organize_data(data):
+    header = data[0]
+    defaultValues = [r"Identificação", r"Fibrinogênio", r"TP", r"TTPA"]
+    indices = [next((i for i, cabecalho in enumerate(header) if re.search(padrao, cabecalho)), None) for padrao in defaultValues]
+    header = [header[i] for i in indices]
+
+    for linha in data:
+        linha[:] = [linha[i] for i in indices]
+
+    return data
+
 def extract_relevant_data(array_data): 
     relevant_data = []
     correct_data = False
 
     for row in array_data:
-        if 'Fibrinogênio (mg/dL)' in row[1]:
-            correct_data = True
+        if len(row) > 2:
+            if 'Fibrinogênio' in row[1] or 'TP' in row[1] or 'TTPA' in row[1]:
+                correct_data = True
             
-        if correct_data:
-            relevant_data.append([row[0], row[1], row[2], row[3]])
+            if correct_data:
+                relevant_data.append([row[0], row[1], row[2], row[3]])
 
-    return relevant_data
+    organizedData = organize_data(relevant_data)
+
+    return organizedData
 
 def format_key_value_pair(key, value):
     key = key.replace('\n', '')
@@ -66,7 +80,7 @@ def add_minutes(time):
     hour = int(time_separate[0]) 
     minute = int(time_separate[1])  
 
-    minute += random.uniform(2, 3)
+    minute += 1
 
     if minute >= 60:
         hour += 1
@@ -87,7 +101,7 @@ def create_word_document_fibs(dataFib, date, time):
     timeFib = time
 
     for fib in dataFib:
-        id = fib['id'][-3:]  # Seleciona apenas as 3 últimas strings
+        id = fib['id'][-4:]  # Seleciona apenas as 4 últimas strings
         fibValue = fib['fib'].replace(",", ".")
 
         insert_title_document(doc)
