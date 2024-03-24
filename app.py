@@ -32,7 +32,6 @@ def upload_file():
             tables_info = extract_information_from_table_as_array(document)
             date_collection = find_collection_date(tables_info)
             relevant_data = extract_relevant_data(tables_info)   # Extrai apenas os dados úteis
-            print(relevant_data)
             relevant_data.pop(0)
 
             first_exam_hour = random.randint(14, 17)
