@@ -1,16 +1,37 @@
 from docx import Document
-import zipfile
 import re
-import os
-from docx.shared import Cm, Pt, Length
-from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
-from docx.enum.table import WD_ALIGN_VERTICAL
-from datetime import datetime
-from docx.enum.text import WD_LINE_SPACING
-from docx.shared import Mm
-import win32com.client as win32
-import pythoncom
+from docx.shared import Pt
+import re
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from collections import defaultdict
+import random
+from docx.shared import Pt
+from datetime import datetime, timedelta
+
+def get_number_laudo(text):
+    number = re.search(r'\(([^)]+)\)', text)
+
+    if number:
+        number = number.group(1)
+
+        return number
+    else:
+        return "Número não encontrado"
+
+def format_filename(text):
+    number = re.search(r'\(([^)]+)\)', text)
+    if number:
+        number = number.group(1)
+    else:
+        return "Número não encontrado"
+    
+    suffix = re.search(r' - (.*)$', text)
+    if suffix:
+        suffix = suffix.group(1).replace(' ', '')
+    else:
+        return "Sufixo não encontrado"
+    
+    return f"{number}-{suffix}"
 
 def extract_information_from_table_as_array(docx_file):
     tables_info = []
@@ -25,291 +46,305 @@ def extract_information_from_table_as_array(docx_file):
 
     return tables_info
 
+def format_date(date_str):
+    day, month, year = date_str.split('/')
+
+    return f"{year}-{month}-{day}"
+
 def find_collection_date(array_data):
     for item in array_data:
-        if item[0] == "Data de coleta:":
-            return item[1]
+        if item[0] == "Data de coleta:" or item[0] == "Datas de coleta:":
+            return format_date(item[1])
     return "Data de coleta não encontrada"
 
-def is_id(data):
-    for char in data:
-        if char.isdigit():
-            return True
-    return False
+def count_animals(data):
+    is_identification = False
+    animal_count = 0
+    counted = False 
 
-def organize_data(data):
-    header = data[0]
-    defaultValues = [r"Identificação", r"Fibrinogênio", r"TP", r"TTPA"]
-    indices = [next((i for i, cabecalho in enumerate(header) if re.search(padrao, cabecalho)), None) for padrao in defaultValues]
-    header = [header[i] for i in indices]
+    for entry in data:
+        if entry[0] == "Identificação" and not is_identification:
+            if counted: 
+                break
+            is_identification = True
+        elif (entry[0] == "Solicitante:" or entry[0] == "Identificação") and is_identification:
+            is_identification = False
+            counted = True 
+        elif is_identification:
+            animal_count += 1
+    return animal_count
 
-    for linha in data:
-        linha[:] = [linha[i] for i in indices]
+def generate_first_hour():
+    # hour = random.randint(16, 18)
+    hour = 15
+    minutes = random.randint(0, 50)
+    # minutes = random.randint(0, 59)
+    seconds = random.randint(0, 20)
 
-    return data
+    return '15:21:14'
+    # return f"{hour:02d}" + ":" + f"{minutes:02d}" + ":" + f"{seconds:02d}"
 
-def extract_relevant_data(array_data): 
-    relevant_data = []
-    correct_data = False
+def extract_data(array_data):
+    combined_data = []
+    headers = []
+    values = []
 
     for row in array_data:
         if len(row) > 2:
-            if 'Fibrinogênio' in row[1] or 'TP' in row[1] or 'TTPA' in row[1]:
-                correct_data = True
-            
-            if correct_data:
-                relevant_data.append([row[0], row[1], row[2], row[3]])
+            if row[0] == "Identificação" or row[0] == "Id": 
+                headers.append(row)
+            else:
+                values.append(row)
 
-    organizedData = organize_data(relevant_data)
+    quant_animals = count_animals(array_data)
+    count = 0
+    
+    for i in range(0, len(values), quant_animals):
+        animal_data = []
+        header = headers[count] if headers else []
+        animal_data.append(header)
+        animal_data.append(values[i:i + quant_animals])
+        combined_data.append(animal_data)
+        count += 1
 
-    return organizedData
+    return combined_data
 
-def format_key_value_pair(key, value):
-    key = key.replace('\n', '')
+def formatted_data_by_id(data):
+    combined_data = defaultdict(dict)
 
-    match = re.search(r'\((.*?)\)', key)
-    if match:
-        unit = match.group(1)
-        key = re.sub(r'\(.*?\)', '', key)
-        return f"{key}  {value} {unit}"
-    else:
-        return f"{key}  {value}"
+    for item in data:
+        id = item["Identificação"]
+        for key, value in item.items():
+            if key != "Identificação":
+                combined_data[id][key] = value
+    
+    result = [{"Identificação": id, **properties} for id, properties in combined_data.items()]
 
-def format_date(date_str):
-    date_object = datetime.strptime(date_str, "%d/%m/%Y")
-    formatted_date = date_object.strftime("%Y –%m –%d")
+    return result 
 
-    return formatted_date
+def remove_unecessary_infos(formatted_by_id):
+    # fields_map = {
+    #     "ALT": ["ALT (U/L)", "alanina aminotransferase", "ALT1 (U/L)", "Alanina amino transferase – ALT (U/L)"],
+    #     "AST": ["Aspartato Amino transferase (U/L)", "AST (U/L)", "AST1 (U/L)"],
+    #     "CREAT": ["Creatinina (mg/dL)"],
+    #     "URE": ["Ureia (mg/dL)", "Uréia (mg/dL)"],
+    #     "FAL": ["Fosf. Alcalina  (U/L)", "FA (U/L)"],
+    #     "GGT": ["GGT (U/L)", "gama glutamil transferase", "GGT1 (U/L)"],
+    #     "PROTT": ["Proteína total (g/dL)"],
+    #     "ALB": ["Albumina (g/dL)"],
+    #     "COL": ["Colesterol total (mg/dL)"],
+    #     "TRI": ["Triglicérides (mg/dL)"],
+    #     "AMI": ["Amilase (U/L)"],
+    #     "CAL": ["Cálcio (mg/dL)"],
+    #     "FOS": ["Fosfato inorgânico (mg/dL)", "Fosfato inorgânico (mg/dL)", "Fósforo (mg/dL)"],
+    #     "BT": ["Bilirrubina (mg/dL) Total"],
+    #     "BD": ["Bilirrubina (mg/dL) Direta"],
+    #     "SOD": ["Sódio (mmol/L)"],
+    #     "POT": ["Potássio (mmol/L)","Potássio (mEq/L)"],
+    #     "CK-NAC": ["CK (U/L)", "CK  (U/L)", "Creatino Quinase (U/L)", "Creatino quinase (U/L)", "Creatina quinase (U/L)", "Creatina quinase(U/L)"],
+    #     "MAG": ["Magnésio (mg/dL)"],
+    #     "LDH": ["Lactato desidrogenase (U/L)"],
+    #     "GLOB": ["Globulina (g/dL)"]
+    # }
 
-def add_minutes(time):
-    time_separate = time.split(":")
-    hour = int(time_separate[0]) 
-    minute = int(time_separate[1])  
+    fields_map = {
+        "HAPT": ["ALT (U/L)"],
+        "GLI": ["Glicose (mg/dL)"]
+    }
 
-    minute += 1
+    filtered_data = []
 
-    if minute >= 60:
-        hour += 1
-        minute -= 60
+    for item in formatted_by_id:
+        filtered_item = {"Identificação": item["Identificação"]}
+        for field_abbr, possible_fields in fields_map.items():
+            for field in possible_fields:
+                if field in item:
+                    filtered_item[field_abbr] = item[field]
+                    break
+        filtered_data.append(filtered_item)
 
-        if hour >= 24:
-            hour = 0
+    return filtered_data
 
-    return f"{hour:02d}:{int(round(minute)):02d}"
+def get_data_by_animal(tables_infos):
+    data = extract_data(tables_infos)
+    combined_data = []
 
-def keep_last_digits(input_string):
-    numbers = ''.join(filter(str.isdigit, input_string))
-    last_digits = numbers[-4:] 
-    return last_digits
-
-def configFirstLineTable(table):
-    table.cell(0, 0).merge(table.cell(0, 1))
-    table.cell(0, 0).text = 'MAX COAG 1'
-    table.rows[0].height = Cm(0.85)
-
-    first_cell = table.rows[0].cells[0]
-    first_cell.vertical_alignment = WD_ALIGN_VERTICAL.TOP
-
-    first_row = first_cell.paragraphs[0]
-    run = first_row.runs[0] if first_row.runs else first_row.add_run()
-    run.font.size = Pt(13)
-    first_row.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-
-def configSecondLineTable(table, type):
-    id = keep_last_digits(type['id'])
-
-    table.cell(1, 0).merge(table.cell(1, 1))
-    table.cell(1, 0).text = f"ID:   {id}"
-    table.rows[1].height = Cm(0.4)
-
-    second_row = table.cell(1, 0).paragraphs[0]
-    second_row.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
-    run = second_row.runs[0] if second_row.runs else second_row.add_run()
-    run.font.size = Pt(11)   
-
-def configThirdLineTable(table, date, time):
-    table.rows[2].height = Cm(0.6)
-    dateText = format_date(date)
-
-    # Configurações de largura para cada coluna
-    widths = [Cm(2.95), Cm(1.45)]
-
-    for idx, (text, width) in enumerate(zip([dateText, time], widths)):
-        cell = table.cell(2, idx)
-        cell.width = width
-        cell.vertical_alignment = WD_ALIGN_VERTICAL.TOP
-
-        while len(cell.paragraphs) > 1:
-            p = cell.paragraphs[1]._element
-            p.getparent().remove(p)
-
-        paragraph = cell.paragraphs[0]
-        paragraph.clear()
-        run = paragraph.add_run(text)
-        paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
-        run.font.size = Pt(11)
-
-def configFourthLineTable(table, texts):
-    table.rows[3].height = Cm(0.6)
-
-    for idx, text in enumerate(texts):
-        cell = table.cell(3, idx)
-        cell.vertical_alignment = WD_ALIGN_VERTICAL.BOTTOM
- 
-        for paragraph in cell.paragraphs[1:]:
-            p = paragraph._element
-            p.getparent().remove(p)
+    for item in data:
+        header = item[0]
+        data_rows = item[1:]
         
-        paragraph = cell.paragraphs[0]
-        paragraph.clear()  
-        run = paragraph.add_run(text)
-        run.font.size = Pt(11)
-
-def configFifthLineTable(table, text):
-    table.rows[4].height = Cm(0.6)
-    cell = table.cell(4, 0).merge(table.cell(4, 1))
-    cell.vertical_alignment = WD_ALIGN_VERTICAL.BOTTOM
-
-    for paragraph in cell.paragraphs[1:]:
-        p = paragraph._element
-        p.getparent().remove(p)
-
-    paragraph = cell.paragraphs[0]
-    paragraph.clear() 
-    run = paragraph.add_run(text)
-    run.font.size = Pt(11)
-
-def configDocument(doc):
-    style = doc.styles['Normal']
-    style.paragraph_format.space_after = Pt(0)
-    style.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
-    font = style.font
-    font.name = 'Tinos'
-    section = doc.sections[0]
-    section.top_margin = Cm(1)
-    section.bottom_margin = Cm(1)
-    section.left_margin = Cm(0.9)
-    section.right_margin = Cm(0.9)
-    section.page_width = Mm(58)
-    section.page_height = Mm(297)
-
-def configTable(table):
-    table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    columns = table.columns
-    num_columns = len(columns)
-    per_cell_width = Cm(4.4 / num_columns)
-
-    total_preferred_width = Cm(4.4)
-    table.cell(2, 0).width = Cm(2.95)  
-    table.cell(2, 1).width = total_preferred_width - table.cell(2, 0).width 
-    table.cell(3, 0).width = Cm(1.5) 
-    table.cell(3, 1).width = total_preferred_width - table.cell(3, 0).width 
-
-    for row in table.rows:
-        for cell in row.cells:
-            cell.width = per_cell_width
-
-def create_word_document_fibs(dataFib, date, time):
-    doc = Document()
-    configDocument(doc)
-    timeFib = time
-
-    for fib in dataFib:
-        fibValue = fib['fib'].replace(",", ".")
-
-        table = doc.add_table(rows=5, cols=2)
-        configTable(table)
-
-        configFirstLineTable(table)
-        configSecondLineTable(table, fib)
-        configThirdLineTable(table, date, timeFib)
-        configFourthLineTable(table, ["FIB-C", f"{fibValue}      mg/dL"])
-        configFifthLineTable(table, "    (   0. 0    – ‒ – ‒  0. 0    )")
-
-        timeFib = add_minutes(timeFib)
-        doc.add_paragraph() 
+        for row in data_rows[0]:
+            row_data = dict(zip(header, row))
+            combined_data.append(row_data)
     
-    doc.save("fib_data.docx")
+    formatted_by_id = formatted_data_by_id(combined_data)
 
-    return timeFib
+    return remove_unecessary_infos(formatted_by_id)
 
-def add_top_border_to_fourth_row(doc_path):
-    pythoncom.CoInitialize()  # Inicializa o COM no thread atual
-    word = win32.gencache.EnsureDispatch('Word.Application')
-    doc = word.Documents.Open(doc_path)
-    word.Visible = False
+def replace_commas(data):
+    for item in data:
+        for key, value in item.items():
+            if key != "Identificação" and isinstance(value, str):
+                item[key] = value.replace(',', '.')
+    return data
 
-    try:
-        for table in doc.Tables:
-            if len(table.Rows) >= 4:
-                for cell in table.Rows(4).Cells:
-                    cell.Borders(win32.constants.wdBorderTop).LineStyle = win32.constants.wdLineStyleDashLargeGap
-                    cell.Borders(win32.constants.wdBorderTop).LineWidth = win32.constants.wdLineWidth050pt 
-                    cell.Borders(win32.constants.wdBorderTop).Color = win32.constants.wdColorAutomatic  
-            
-    except Exception as e:
-        print(f"Erro ao adicionar borda à quarta linha: {e}")
-    finally:
-        doc.Save()
-        doc.Close()
-        word.Quit()
+def add_hour_to_animals(data, start_time, name_prop):
+    current_time = datetime.strptime(start_time, "%H:%M:%S")
+    count = 0
+    quant = random.randint(8, 12)
 
-    pythoncom.CoUninitialize() 
+    for item in data:
+        item[name_prop] = current_time.strftime("%H:%M:%S")
+        count += 1
+        
+        if count >= quant:
+            current_time += timedelta(seconds=1)
+            count = 0
+            quant = random.randint(8, 12)
     
+    return data
 
-def create_word_document_tp(dataTp, date, time):
-    doc = Document()
-    configDocument(doc)
-    timeTp = time
+def add_id_amostra(data, date_str):
+    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
 
-    for tp in dataTp: 
-        tpValue = tp['tp'].replace(",", ".")
+    # Verificar se é fim de semana (sábado = 5, domingo = 6)
+    # if date_obj.weekday() >= 5:
+    #     random_id = random.randint(10, 40)
+    # else:
+    #     random_id = random.randint(40, 120)
 
-        table = doc.add_table(rows=5, cols=2)
-        configTable(table)
-
-        configFirstLineTable(table)
-        configSecondLineTable(table, tp)
-        configThirdLineTable(table, date, timeTp)
-        configFourthLineTable(table, ["PT", f"{tpValue}      S"])
-        configFifthLineTable(table, "    (   0. 0    – ‒ – ‒  0. 0    )")
-
-        timeTp = add_minutes(timeTp)
-        doc.add_paragraph() 
-
-    docx_path = "tp_data.docx"
-    doc.save(docx_path)
-
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    docx_path_finally = os.path.join(current_dir, docx_path)
-    add_top_border_to_fourth_row(docx_path_finally)
-
-    return timeTp
-
-def create_word_document_ttpa(dataTtpa, date, time):
-    doc = Document()
-    configDocument(doc)
-    timeTtpa = time
-
-    for ttpa in dataTtpa:
-        ttpaValue = ttpa['ttpa'].replace(",", ".")
-
-        table = doc.add_table(rows=5, cols=2)
-        configTable(table)
-
-        configFirstLineTable(table)
-        configSecondLineTable(table, ttpa)
-        configThirdLineTable(table, date, timeTtpa)
-        configFourthLineTable(table, ["APTT", f"{ttpaValue}      S"])
-        configFifthLineTable(table, "    (   0. 0    – ‒ – ‒  0. 0    )")
-
-        timeTtpa = add_minutes(timeTtpa)
-        doc.add_paragraph() 
+    random_id = 78
     
-    doc.save("ttpa_data.docx")
+    for i, item in enumerate(data):
+        item["Id amostra"] = str(random_id + i)
 
-def create_zip_with_word_documents(word_filenames):
-    with zipfile.ZipFile('animalsData.zip', 'w') as zip_file:
-        for word_filename in word_filenames:
-            zip_file.write(word_filename)
-            os.remove(word_filename)
+    return data
+
+def generate_footer_hour(data):
+    quant_animals = len(data)
+    last_hour_str = data[quant_animals - 1]["Hour"]
+    last_hour = datetime.strptime(last_hour_str, "%H:%M:%S")
+    minutes = random.randint(10, 30)
+    new_footer_hour = last_hour + timedelta(minutes=minutes)
+
+    # return new_footer_hour.strftime("%H:%M:%S")
+    return '15:34:16'
+
+def data_processing(tables_infos, date_collection):
+    data_by_animal = get_data_by_animal(tables_infos)
+    data_replaced = replace_commas(data_by_animal) # Função para trocar , por . nos resultados
+
+    first_hour = generate_first_hour()
+    data_with_hour = add_hour_to_animals(data_replaced, first_hour, "Hour")
+    data_with_id_amostra = add_id_amostra(data_with_hour, date_collection)
+
+    first_footer_hour  = generate_footer_hour(data_with_id_amostra)
+    data_with_hour_footer = add_hour_to_animals(data_with_id_amostra, first_footer_hour, "Hour Footer")
+    
+    return data_with_hour_footer
+
+def change_font(field, font_size):
+    for paragraph in field.paragraphs:
+            for run in paragraph.runs:
+                run.font.size = Pt(font_size)
+
+def remove_unecessary_tables(template, index):
+    num_tables = len(template.tables)
+    for i in range(index, num_tables):
+        table = template.tables[index]._element
+        table.getparent().remove(table)
+
+def change_ck(field):
+    if (field == 'CK-NAC'):
+        return 'CK-NA'
+    else:
+        return field
+
+def create_word_document(data, date, template, name_doc):
+    index = 0
+
+    for animal in data:
+        print(animal)
+        tableHeader = template.tables[index]
+
+        id_amostra_field = tableHeader.rows[0].cells[4].tables[0].cell(0, 1)
+        id_amostra_field.text = animal['Id amostra']
+        change_font(id_amostra_field, 10)
+
+        id_field = tableHeader.rows[1].cells[0].tables[0].cell(0, 1)
+        id_field.text = animal['Identificação']
+        change_font(id_field, 10)
+
+        date_field = tableHeader.rows[2].cells[5]
+        date_field.text = date
+        change_font(date_field, 9.5)
+
+        hour_field = tableHeader.rows[2].cells[6]
+        hour_field.text = animal['Hour']
+        change_font(hour_field, 9.5)
+
+        tableInfos = template.tables[index+1]
+        # fields_name = [
+        #     "ALT", "AST", "CREAT", "URE", "FAL", "GGT", "PROTT", "ALB",
+        #     "COL", "TRI", "AMI", "CAL", "FOS", "BT", "BD", "SOD", "POT",
+        #     "CK-NAC", "LDH", "MAG", "GLOB"
+        # ]
+        fields_name = [
+            "HAPT", "GLI"
+        ]
+        fields_unit = {
+            "HAPT": 'mg/L',
+            "GLI": 'mg/dL'
+        }
+        # fields_unit = {
+        #     "ALT": 'U/L', "AST": 'U/L', "CREAT": 'mg/dL', "URE": 'mg/dL', "FAL": 'U/L', 
+        #     "GGT": 'U/L', "PROTT": 'g/dL', "ALB": 'g/dL',
+        #     "COL": 'mg/dL', "TRI": 'mg/dL', "AMI": '', "CAL": 'mg/dL', "FOS": 'mg/dL', 
+        #     "BT": 'mg/dL', "BD": 'mg/dL', "SOD": 'Mmol/L', "POT": 'Mmol/L',
+        #     "CK-NAC": 'U/L', "LDH": 'U/L', "MAG": 'mg/dL', "GLOB": 'g/dL'
+        # }
+        count = 1
+        for field in fields_name:
+            if animal.get(field):
+                if (count <= 19):
+                    num_field = tableInfos.rows[count].cells[0]
+                    num_field.text = str(count)
+                    num_field.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                    tableInfos.rows[count].cells[1].text = change_ck(field)
+                    tableInfos.rows[count].cells[2].text = field
+                    tableInfos.rows[count].cells[3].text = animal[field]
+
+                    unit_field = tableInfos.rows[count].cells[4]
+                    unit_field.text = fields_unit[field]
+                    unit_field.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                else:
+                    num_field = tableInfos.rows[count-19].cells[6]
+                    num_field.text = str(count)
+                    num_field.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                    tableInfos.rows[count-19].cells[7].text = field
+                    tableInfos.rows[count-19].cells[8].text = field
+                    tableInfos.rows[count-19].cells[9].text = animal[field]
+
+                    unit_field = tableInfos.rows[count-19].cells[10]
+                    unit_field.text = fields_unit[field]
+                    unit_field.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                count += 1
+
+        tableFooter = template.tables[index+2]
+
+        date_footer_field = tableFooter.rows[0].cells[3]
+        date_footer_field.text = date
+        change_font(date_footer_field, 9.5)
+
+        hour_footer_field = tableFooter.rows[0].cells[4]
+        hour_footer_field.text = animal['Hour Footer']
+        hour_footer_field.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        change_font(hour_footer_field, 9.5)
+
+        index += 3
+
+    remove_unecessary_tables(template, index)
+
+    template.save(name_doc)

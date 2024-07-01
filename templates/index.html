@@ -13,7 +13,7 @@
             <h1>Detalhes do Laudo: Fibrinogênio, Tempo de Protrombina e TTPA</h1>
             <form id="uploadForm" enctype="multipart/form-data">
                 <div>
-                    <input type="file" id="hiddenFileUpload" accept=".doc,.docx" name="fileUpload"/>
+                    <input type="file" id="hiddenFileUpload" name="fileUpload" accept=".doc,.docx"/>
                     <button id="fileUpload" type="button">Escolha um arquivo</button>
                     <span id="fileChosen">Nenhum arquivo escolhido</span>
                 </div>
@@ -29,9 +29,9 @@
         <div class="modal-content">
             <span class="close-button">&times;</span>
 
-            <p>Arquivo enviado com sucesso!</p>
-            <p>Clique no botão abaixo para baixar um arquivo ZIP contendo os arquivos de todos os animais:</p>
-            <a href="/download_zip" download id="uploadZipButton">Download ZIP</a>
+            <p>Arquivo salvo com sucesso!</p>
+            <!-- <p>Clique no botão abaixo para baixar um arquivo ZIP contendo os arquivos de todos os animais:</p>
+            <a href="/download_zip" download id="uploadZipButton">Download ZIP</a> -->
         </div>
     </div>
 
