@@ -1,12 +1,14 @@
 from docx import Document
 import re
 from docx.shared import Pt
-import re
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from collections import defaultdict
+from win32com.client import constants
 import random
-from docx.shared import Pt
 from datetime import datetime, timedelta
+import win32com.client as win32
+import pythoncom
+import os
 
 def get_number_laudo(text):
     number = re.search(r'\(([^)]+)\)', text)
@@ -46,15 +48,10 @@ def extract_information_from_table_as_array(docx_file):
 
     return tables_info
 
-def format_date(date_str):
-    day, month, year = date_str.split('/')
-
-    return f"{year}-{month}-{day}"
-
 def find_collection_date(array_data):
     for item in array_data:
         if item[0] == "Data de coleta:" or item[0] == "Datas de coleta:":
-            return format_date(item[1])
+            return item[1]
     return "Data de coleta não encontrada"
 
 def count_animals(data):
@@ -75,14 +72,12 @@ def count_animals(data):
     return animal_count
 
 def generate_first_hour():
-    # hour = random.randint(16, 18)
-    hour = 15
-    minutes = random.randint(0, 50)
-    # minutes = random.randint(0, 59)
+    hour = random.randint(15, 18)
+    minutes = random.randint(0, 59)
     seconds = random.randint(0, 20)
 
-    return '15:21:14'
-    # return f"{hour:02d}" + ":" + f"{minutes:02d}" + ":" + f"{seconds:02d}"
+    # return '12:15:12'
+    return f"{hour:02d}" + ":" + f"{minutes:02d}" + ":" + f"{seconds:02d}"
 
 def extract_data(array_data):
     combined_data = []
@@ -128,7 +123,7 @@ def remove_unecessary_infos(formatted_by_id):
     #     "AST": ["Aspartato Amino transferase (U/L)", "AST (U/L)", "AST1 (U/L)"],
     #     "CREAT": ["Creatinina (mg/dL)"],
     #     "URE": ["Ureia (mg/dL)", "Uréia (mg/dL)"],
-    #     "FAL": ["Fosf. Alcalina  (U/L)", "FA (U/L)"],
+    #     "FAL": ["Fosf. Alcalina  (U/L)", "FA (U/L)", "Fosfatase Alcalina  (U/L)", "Fosf. Alcalina (U/L)"],
     #     "GGT": ["GGT (U/L)", "gama glutamil transferase", "GGT1 (U/L)"],
     #     "PROTT": ["Proteína total (g/dL)"],
     #     "ALB": ["Albumina (g/dL)"],
@@ -205,15 +200,12 @@ def add_hour_to_animals(data, start_time, name_prop):
     return data
 
 def add_id_amostra(data, date_str):
-    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+    date_obj = datetime.strptime(date_str, "%d/%m/%Y")
 
-    # Verificar se é fim de semana (sábado = 5, domingo = 6)
-    # if date_obj.weekday() >= 5:
-    #     random_id = random.randint(10, 40)
-    # else:
-    #     random_id = random.randint(40, 120)
-
-    random_id = 78
+    if date_obj.weekday() >= 5:
+        random_id = random.randint(10, 40)
+    else:
+        random_id = random.randint(40, 120)
     
     for i, item in enumerate(data):
         item["Id amostra"] = str(random_id + i)
@@ -227,8 +219,8 @@ def generate_footer_hour(data):
     minutes = random.randint(10, 30)
     new_footer_hour = last_hour + timedelta(minutes=minutes)
 
-    # return new_footer_hour.strftime("%H:%M:%S")
-    return '15:34:16'
+    return new_footer_hour.strftime("%H:%M:%S")
+    # return '15:34:16'
 
 def data_processing(tables_infos, date_collection):
     data_by_animal = get_data_by_animal(tables_infos)
@@ -260,91 +252,207 @@ def change_ck(field):
     else:
         return field
 
+def insertInfosHeader(template, animal, date, index):
+    tableHeader = template.tables[index]
+    id_amostra_field = tableHeader.rows[0].cells[4].tables[0].cell(0, 1)
+    id_amostra_field.text = animal['Id amostra']
+
+    id_field = tableHeader.rows[1].cells[0].tables[0].cell(0, 1)
+    id_field.text = animal['Identificação']
+
+    date_field = tableHeader.rows[2].cells[5]
+    date_field.text = date
+
+    hour_field = tableHeader.rows[2].cells[6]
+    hour_field.text = animal['Hour']
+
+def insertInfosFooter(template, animal, date, index):
+    tableFooter = template.tables[index]
+    date_footer_field = tableFooter.rows[0].cells[3]
+    date_footer_field.text = date
+
+    hour_footer_field = tableFooter.rows[0].cells[4]
+    hour_footer_field.text = animal['Hour Footer']
+
+def insertInfosContent(template, animal, index):
+    tableInfos = template.tables[index]
+    count = 1
+    # fields_name = [
+    #     "ALT", "AST", "CREAT", "URE", "FAL", "GGT", "PROTT", "ALB",
+    #     "COL", "TRI", "AMI", "CAL", "FOS", "BT", "BD", "SOD", "POT",
+    #     "CK-NAC", "LDH", "MAG", "GLOB"
+    # ]
+    # fields_unit = {
+    #     "ALT": 'U/L', "AST": 'U/L', "CREAT": 'mg/dL', "URE": 'mg/dL', "FAL": 'U/L', 
+    #     "GGT": 'U/L', "PROTT": 'g/dL', "ALB": 'g/dL',
+    #     "COL": 'mg/dL', "TRI": 'mg/dL', "AMI": '', "CAL": 'mg/dL', "FOS": 'mg/dL', 
+    #     "BT": 'mg/dL', "BD": 'mg/dL', "SOD": 'Mmol/L', "POT": 'Mmol/L',
+    #     "CK-NAC": 'U/L', "LDH": 'U/L', "MAG": 'mg/dL', "GLOB": 'g/dL'
+    # }
+    fields_name = [
+        "HAPT", "GLI"
+    ]
+    fields_unit = {
+        "HAPT": 'mg/L',
+        "GLI": 'mg/dL'
+    }
+
+    for field in fields_name:
+        if animal.get(field):
+            num_field = tableInfos.rows[count].cells[0]
+            num_field.text = str(count)
+            num_field.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+
+            tableInfos.rows[count].cells[2].text = change_ck(field)
+            tableInfos.rows[count].cells[3].text = field
+            tableInfos.rows[count].cells[4].text = "  " + animal[field]
+
+            unit_field = tableInfos.rows[count].cells[5]
+            unit_field.text = fields_unit[field]
+        
+            count += 1
+
 def create_word_document(data, date, template, name_doc):
     index = 0
 
     for animal in data:
-        print(animal)
-        tableHeader = template.tables[index]
-
-        id_amostra_field = tableHeader.rows[0].cells[4].tables[0].cell(0, 1)
-        id_amostra_field.text = animal['Id amostra']
-        change_font(id_amostra_field, 10)
-
-        id_field = tableHeader.rows[1].cells[0].tables[0].cell(0, 1)
-        id_field.text = animal['Identificação']
-        change_font(id_field, 10)
-
-        date_field = tableHeader.rows[2].cells[5]
-        date_field.text = date
-        change_font(date_field, 9.5)
-
-        hour_field = tableHeader.rows[2].cells[6]
-        hour_field.text = animal['Hour']
-        change_font(hour_field, 9.5)
-
-        tableInfos = template.tables[index+1]
-        # fields_name = [
-        #     "ALT", "AST", "CREAT", "URE", "FAL", "GGT", "PROTT", "ALB",
-        #     "COL", "TRI", "AMI", "CAL", "FOS", "BT", "BD", "SOD", "POT",
-        #     "CK-NAC", "LDH", "MAG", "GLOB"
-        # ]
-        fields_name = [
-            "HAPT", "GLI"
-        ]
-        fields_unit = {
-            "HAPT": 'mg/L',
-            "GLI": 'mg/dL'
-        }
-        # fields_unit = {
-        #     "ALT": 'U/L', "AST": 'U/L', "CREAT": 'mg/dL', "URE": 'mg/dL', "FAL": 'U/L', 
-        #     "GGT": 'U/L', "PROTT": 'g/dL', "ALB": 'g/dL',
-        #     "COL": 'mg/dL', "TRI": 'mg/dL', "AMI": '', "CAL": 'mg/dL', "FOS": 'mg/dL', 
-        #     "BT": 'mg/dL', "BD": 'mg/dL', "SOD": 'Mmol/L', "POT": 'Mmol/L',
-        #     "CK-NAC": 'U/L', "LDH": 'U/L', "MAG": 'mg/dL', "GLOB": 'g/dL'
-        # }
-        count = 1
-        for field in fields_name:
-            if animal.get(field):
-                if (count <= 19):
-                    num_field = tableInfos.rows[count].cells[0]
-                    num_field.text = str(count)
-                    num_field.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-                    tableInfos.rows[count].cells[1].text = change_ck(field)
-                    tableInfos.rows[count].cells[2].text = field
-                    tableInfos.rows[count].cells[3].text = animal[field]
-
-                    unit_field = tableInfos.rows[count].cells[4]
-                    unit_field.text = fields_unit[field]
-                    unit_field.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-                else:
-                    num_field = tableInfos.rows[count-19].cells[6]
-                    num_field.text = str(count)
-                    num_field.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-                    tableInfos.rows[count-19].cells[7].text = field
-                    tableInfos.rows[count-19].cells[8].text = field
-                    tableInfos.rows[count-19].cells[9].text = animal[field]
-
-                    unit_field = tableInfos.rows[count-19].cells[10]
-                    unit_field.text = fields_unit[field]
-                    unit_field.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-                count += 1
-
-        tableFooter = template.tables[index+2]
-
-        date_footer_field = tableFooter.rows[0].cells[3]
-        date_footer_field.text = date
-        change_font(date_footer_field, 9.5)
-
-        hour_footer_field = tableFooter.rows[0].cells[4]
-        hour_footer_field.text = animal['Hour Footer']
-        hour_footer_field.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        change_font(hour_footer_field, 9.5)
+        insertInfosHeader(template, animal, date, index)
+        insertInfosContent(template, animal, index+1)
+        insertInfosFooter(template, animal, date, index+2)
 
         index += 3
 
-    remove_unecessary_tables(template, index)
+    # remove_unecessary_tables(template, index)
 
     template.save(name_doc)
+
+# def changeStyleHeader(doc, total_tabelas):
+#     for i in range(1, total_tabelas, 3):
+#         try:
+#             tableFirst = doc.Tables(i)
+#             tableFirst.Range.Font.Scaling = 80
+#         except Exception as e:
+#             print(f"Erro ao modificar o header da tabela {i}: {e}")
+
+def changeStyleHeader(doc, total_tabelas):
+    # Definir manualmente o valor da constante caso o Word não a reconheça
+    wdActiveEndPageNumber = 3  # Essa é a constante do número da página final ativa no Word
+    
+    for i in range(1, total_tabelas + 1, 3):
+        try:
+            tableFirst = doc.Tables(i)
+            # Obter o número da página onde a tabela começa
+            pagina = tableFirst.Range.Information(wdActiveEndPageNumber)
+            print(f"Tabela header {i} está na página {pagina}")
+            # Aplicar estilo no cabeçalho da tabela
+            tableFirst.Range.Font.Scaling = 80
+        except Exception as e:
+            print(f"Erro ao modificar o header da tabela {i}: {e}")
+
+# def changeStyleContent(doc, total_tabelas):
+#     print("total_tabelas", total_tabelas)
+#     for i in range(2, total_tabelas, 3):
+#         try:
+#             table = doc.Tables(i)
+#             for cont in range(2, len(table.Rows)):
+#                 idColumn = table.Rows(cont).Cells(1)
+#                 idFont = idColumn.Range.Font
+#                 idFont.Scaling = 80 
+#                 idFont.Spacing = 3 
+
+#                 itemColumn = table.Rows(cont).Cells(3)
+#                 itemColumn.Range.Font.Scaling = 85
+
+#                 otherNameColumn = table.Rows(cont).Cells(4)
+#                 otherNameColumn.Range.Font.Scaling = 85
+
+#                 resultColumn = table.Rows(cont).Cells(5)
+#                 resultColumn.Range.Font.Scaling = 85
+
+#                 unitColumn = table.Rows(cont).Cells(6)
+#                 unitColumn.Range.Font.Scaling = 80
+            
+#         except Exception as e:
+#             print(f"Erro ao modificar o conteudo da tabela {i}: {e}")
+
+def changeStyleContent(doc, total_tabelas):
+    # Definir manualmente o valor da constante caso o Word não a reconheça
+    wdActiveEndPageNumber = 3  # Essa é a constante do número da página final ativa no Word
+
+    print("Total de tabelas:", total_tabelas)
+    for i in range(2, total_tabelas + 1, 3):  # Itera a cada terceira tabela, começando da segunda
+        try:
+            table = doc.Tables(i)
+            # Obter o número da página onde a tabela começa
+            pagina = table.Range.Information(wdActiveEndPageNumber)
+            print(f"Tabela conteudo {i} está na página {pagina}")
+
+            # Iterar pelas linhas da tabela a partir da segunda linha
+            for cont in range(2, len(table.Rows) + 1):
+                # Ajuste de estilo na coluna de ID
+                idColumn = table.Rows(cont).Cells(1)
+                idFont = idColumn.Range.Font
+                idFont.Scaling = 80
+                idFont.Spacing = 3
+
+                # Ajuste de estilo nas outras colunas especificadas
+                itemColumn = table.Rows(cont).Cells(3)
+                itemColumn.Range.Font.Scaling = 85
+
+                otherNameColumn = table.Rows(cont).Cells(4)
+                otherNameColumn.Range.Font.Scaling = 85
+
+                resultColumn = table.Rows(cont).Cells(5)
+                resultColumn.Range.Font.Scaling = 85
+
+                unitColumn = table.Rows(cont).Cells(6)
+                unitColumn.Range.Font.Scaling = 80
+
+        except Exception as e:
+            print(f"Erro ao modificar o conteúdo da tabela {i}: {e}")
+
+# def changeStyleFooter(doc, total_tabelas):
+#     for i in range(3, total_tabelas+1, 3):
+#         try:
+#             print("Total tabelas", total_tabelas)
+#             print("i", i)
+#             tableFirst = doc.Tables(i)
+#             first_row = tableFirst.Rows(1)
+#             first_row.Range.Font.Scaling = 80
+#         except Exception as e:
+#             print(f"Erro ao modificar o footer da tabela {i}: {e}")
+
+def changeStyleFooter(doc, total_tabelas):
+    wdActiveEndPageNumber = 3
+    for i in range(1, total_tabelas + 1):
+        try:
+            tabela = doc.Tables(i)
+            pagina = tabela.Range.Information(wdActiveEndPageNumber)
+            tabela.Rows(1).Range.Font.Scaling = 80
+        except Exception as e:
+            print(f"Erro ao modificar a tabela {i}: {e}")
+
+def changeStyle(folder, fileName):   
+    pythoncom.CoInitialize() 
+    word_app = win32.Dispatch('Word.Application')
+    word_app.Visible = False
+
+    docPath = os.path.join(folder, fileName)
+    doc = word_app.Documents.Open(docPath)
+
+    if doc is not None:
+        print("Documento aberto com sucesso.")
+    else:
+        print("Falha ao abrir o documento.")
+        return
+    
+    total_tabelas = len(doc.Tables)
+
+    changeStyleHeader(doc, total_tabelas)
+    changeStyleContent(doc, total_tabelas)
+    changeStyleFooter(doc, total_tabelas)
+
+    doc.SaveAs(docPath)
+    doc.Close()
+    word_app.Quit()
+    pythoncom.CoUninitialize()

@@ -5,7 +5,7 @@ import os
 import random
 from waitress import serve
 import shutil
-from helpers import extract_information_from_table_as_array, find_collection_date, data_processing, create_word_document, format_filename, get_number_laudo
+from helpers import extract_information_from_table_as_array, find_collection_date, data_processing, create_word_document, format_filename, get_number_laudo, changeStyle
 
 app = Flask(__name__)
 
@@ -37,10 +37,12 @@ def upload_file():
             template = Document("template.docx")
             create_word_document(data_final, date_collection, template, bio_file_name)
 
-            number_laudo = get_number_laudo(laudo_name)
-            downloads_folder = r'C:\Users\Hanna\Documents\Aliavet\Bioquimico\Estudos Feitos\\' + number_laudo
-            # downloads_folder = r'C:\Users\Hanna\Documents\Aliavet\Bioquimico\teste'
+            # number_laudo = get_number_laudo(laudo_name)
+  
+            downloads_folder = r'C:\Users\Hanna\OneDrive\Documentos\Aliavet\Bioquimico\101.061-22\\'
             shutil.copy(bio_file_name, downloads_folder)
+
+            changeStyle(downloads_folder, bio_file_name)
 
         except Exception as e:
             return str(e), 500
